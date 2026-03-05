@@ -1,0 +1,828 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>人力管理系统</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f5f5f5;
+      }
+      #app {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 {
+        text-align: center;
+        margin-bottom: 30px;
+        color: #333;
+      }
+      .form-container {
+        background-color: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+      }
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 15px;
+      }
+      .form-group {
+        display: flex;
+        flex-direction: column;
+      }
+      label {
+        margin-bottom: 5px;
+        font-weight: bold;
+        color: #555;
+      }
+      input, select, textarea {
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+      }
+      input:focus, select:focus, textarea:focus {
+        outline: none;
+        border-color: #4CAF50;
+      }
+      .button-group {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+      }
+      button {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      .btn-primary {
+        background-color: #4CAF50;
+        color: white;
+      }
+      .btn-secondary {
+        background-color: #2196F3;
+        color: white;
+      }
+      .btn-danger {
+        background-color: #f44336;
+        color: white;
+      }
+      .data-table {
+        background-color: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th, td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+      }
+      th {
+        background-color: #f2f2f2;
+        font-weight: bold;
+      }
+      tr:hover {
+        background-color: #f5f5f5;
+      }
+      .success-message {
+        background-color: #d4edda;
+        color: #155724;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+      }
+      .error-message {
+        background-color: #f8d7da;
+        color: #721c24;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+      }
+      .login-container {
+        max-width: 400px;
+        margin: 100px auto;
+        background-color: white;
+        padding: 40px;
+        border-radius: 8px;
+        box-shadow: 0 0 20px rgba(0,0,0,0.1);
+      }
+      .login-form {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+      }
+      .login-form input {
+        padding: 12px;
+        font-size: 16px;
+      }
+      .login-form button {
+        padding: 12px;
+        font-size: 16px;
+        margin-top: 10px;
+      }
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+      }
+      .header h1 {
+        margin: 0;
+      }
+      .header-buttons {
+        display: flex;
+        gap: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <!-- 登录界面 -->
+      <div v-if="!isLoggedIn" class="login-container">
+        <h1>人力管理系统 - 登录</h1>
+        <div v-if="loginError" class="error-message">
+          {{ loginError }}
+        </div>
+        <form class="login-form" @submit.prevent="login">
+          <div class="form-group">
+            <label for="username">用户名</label>
+            <input type="text" id="username" v-model="loginForm.username" required>
+          </div>
+          <div class="form-group">
+            <label for="password">密码</label>
+            <input type="password" id="password" v-model="loginForm.password" required>
+          </div>
+          <button type="submit" class="btn-primary">登录</button>
+        </form>
+      </div>
+      
+      <!-- 主系统界面 -->
+      <div v-else>
+        <!-- 头部 -->
+        <div class="header">
+          <h1>人力管理系统</h1>
+          <div class="header-buttons">
+            <button class="btn-secondary" @click="showAccountManagement = !showAccountManagement">账号管理</button>
+            <button class="btn-danger" @click="logout">退出登录</button>
+          </div>
+        </div>
+        
+        <!-- 账号管理界面 -->
+        <div v-if="showAccountManagement" class="form-container">
+          <h2>账号管理</h2>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="newUsername">新用户名</label>
+              <input type="text" id="newUsername" v-model="newAccount.username">
+            </div>
+            <div class="form-group">
+              <label for="newPassword">新密码</label>
+              <input type="password" id="newPassword" v-model="newAccount.password">
+            </div>
+          </div>
+          <div class="button-group">
+            <button class="btn-primary" @click="addAccount">添加账号</button>
+          </div>
+          
+          <h3>现有账号</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>用户名</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(account, index) in accounts" :key="index">
+                <td>{{ account.username }}</td>
+                <td>
+                  <button class="btn-danger" @click="deleteAccount(index)">删除</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <!-- 成功消息 -->
+        <div v-if="successMessage" class="success-message">
+          {{ successMessage }}
+        </div>
+        
+        <!-- 错误消息 -->
+        <div v-if="errorMessage" class="error-message">
+          {{ errorMessage }}
+        </div>
+        
+        <!-- 表单容器 -->
+        <div class="form-container">
+          <h2>员工信息</h2>
+          <div class="form-grid">
+            <!-- 基本信息 -->
+            <div class="form-group">
+              <label for="name">姓名</label>
+              <input type="text" id="name" v-model="formData.name" required>
+            </div>
+            <div class="form-group">
+              <label for="phone">电话号码</label>
+              <input type="tel" id="phone" v-model="formData.phone" required>
+            </div>
+            <div class="form-group">
+              <label for="company">公司</label>
+              <input type="text" id="company" v-model="formData.company" required>
+            </div>
+            <div class="form-group">
+              <label for="examId">考卷编号</label>
+              <input type="text" id="examId" v-model="formData.examId">
+            </div>
+            
+            <!-- 身份证信息 -->
+            <div class="form-group">
+              <label for="idCard">身份证号</label>
+              <input type="text" id="idCard" v-model="formData.idCard" @input="handleIdCardInput" required>
+            </div>
+            <div class="form-group">
+              <label for="gender">性别</label>
+              <input type="text" id="gender" v-model="formData.gender" readonly>
+            </div>
+            <div class="form-group">
+              <label for="hometown">籍贯</label>
+              <input type="text" id="hometown" v-model="formData.hometown">
+            </div>
+            <div class="form-group">
+              <label for="age">年龄</label>
+              <input type="number" id="age" v-model="formData.age" readonly>
+            </div>
+            
+            <!-- 工作信息 -->
+            <div class="form-group">
+              <label for="job">工种</label>
+              <input type="text" id="job" v-model="formData.job" required>
+            </div>
+            <div class="form-group">
+              <label for="safetyCardValidDate">安操证有效日期</label>
+              <input type="date" id="safetyCardValidDate" v-model="formData.safetyCardValidDate">
+            </div>
+            <div class="form-group">
+              <label for="safetyCardReviewDate">安操证年审日期</label>
+              <input type="date" id="safetyCardReviewDate" v-model="formData.safetyCardReviewDate">
+            </div>
+            <div class="form-group">
+              <label for="isEligibleForExam">安操证考试是否超龄</label>
+              <input type="text" id="isEligibleForExam" v-model="formData.isEligibleForExam" readonly>
+            </div>
+            
+            <!-- 其他信息 -->
+            <div class="form-group">
+              <label for="safetyTrainingDate">安全教育时间</label>
+              <input type="date" id="safetyTrainingDate" v-model="formData.safetyTrainingDate" @input="calculateWorkYears">
+            </div>
+            <div class="form-group">
+              <label for="workYears">工龄</label>
+              <input type="number" id="workYears" v-model="formData.workYears" readonly>
+            </div>
+            <div class="form-group">
+              <label for="departmentScore">部门成绩</label>
+              <input type="number" id="departmentScore" v-model="formData.departmentScore" min="0" max="100">
+            </div>
+            <div class="form-group">
+              <label for="employmentStatus">在岗情况</label>
+              <select id="employmentStatus" v-model="formData.employmentStatus" required>
+                <option value="">请选择</option>
+                <option value="在岗">在岗</option>
+                <option value="离职">离职</option>
+              </select>
+            </div>
+            
+            <!-- 更多信息 -->
+            <div class="form-group">
+              <label for="supervisor">主管\班组长</label>
+              <input type="text" id="supervisor" v-model="formData.supervisor">
+            </div>
+            <div class="form-group">
+              <label for="returnToWorkDate">复工\增员日期</label>
+              <input type="date" id="returnToWorkDate" v-model="formData.returnToWorkDate">
+            </div>
+            <div class="form-group">
+              <label for="resignationDate">离职日期</label>
+              <input type="date" id="resignationDate" v-model="formData.resignationDate">
+            </div>
+            <div class="form-group" style="grid-column: 1 / -1;">
+              <label for="remarks">备注</label>
+              <textarea id="remarks" v-model="formData.remarks" rows="3"></textarea>
+            </div>
+          </div>
+          
+          <!-- 按钮组 -->
+          <div class="button-group">
+            <button class="btn-primary" @click="saveEmployee">保存</button>
+            <button class="btn-secondary" @click="resetForm">重置</button>
+            <button class="btn-secondary" @click="importExcel">导入Excel</button>
+            <button class="btn-secondary" @click="exportExcel">导出Excel</button>
+            <input type="file" id="fileInput" ref="fileInput" accept=".xlsx,.xls" style="display: none;" @change="handleFileUpload">
+          </div>
+        </div>
+        
+        <!-- 数据表格 -->
+        <div class="data-table">
+          <h2>员工列表</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>姓名</th>
+                <th>电话号码</th>
+                <th>公司</th>
+                <th>身份证号</th>
+                <th>性别</th>
+                <th>年龄</th>
+                <th>工种</th>
+                <th>在岗情况</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(employee, index) in employees" :key="index">
+                <td>{{ employee.name }}</td>
+                <td>{{ employee.phone }}</td>
+                <td>{{ employee.company }}</td>
+                <td>{{ employee.idCard }}</td>
+                <td>{{ employee.gender }}</td>
+                <td>{{ employee.age }}</td>
+                <td>{{ employee.job }}</td>
+                <td>{{ employee.employmentStatus }}</td>
+                <td>
+                  <button class="btn-secondary" @click="editEmployee(index)">编辑</button>
+                  <button class="btn-danger" @click="deleteEmployee(index)">删除</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <script>
+      const { createApp } = Vue;
+      
+      createApp({
+        data() {
+          return {
+            // 登录相关
+            isLoggedIn: false,
+            loginForm: {
+              username: '',
+              password: ''
+            },
+            loginError: '',
+            showAccountManagement: false,
+            accounts: [],
+            newAccount: {
+              username: '',
+              password: ''
+            },
+            
+            // 员工信息相关
+            formData: {
+              name: '',
+              phone: '',
+              company: '',
+              examId: '',
+              idCard: '',
+              gender: '',
+              hometown: '',
+              age: '',
+              job: '',
+              safetyCardValidDate: '',
+              safetyCardReviewDate: '',
+              isEligibleForExam: '',
+              safetyTrainingDate: '',
+              workYears: '',
+              departmentScore: '',
+              employmentStatus: '',
+              supervisor: '',
+              returnToWorkDate: '',
+              resignationDate: '',
+              remarks: ''
+            },
+            employees: [],
+            successMessage: '',
+            errorMessage: '',
+            editingIndex: undefined
+          };
+        },
+        mounted() {
+          // 加载账号数据
+          this.loadAccounts();
+          // 检查是否已登录
+          this.checkLoginStatus();
+        },
+        methods: {
+          // 检查登录状态
+          checkLoginStatus() {
+            const isLoggedIn = localStorage.getItem('isLoggedIn');
+            if (isLoggedIn === 'true') {
+              this.isLoggedIn = true;
+              this.loadEmployees();
+            }
+          },
+          
+          // 登录
+          login() {
+            const { username, password } = this.loginForm;
+            
+            // 验证账号
+            const account = this.accounts.find(acc => acc.username === username && acc.password === password);
+            if (account) {
+              this.isLoggedIn = true;
+              localStorage.setItem('isLoggedIn', 'true');
+              this.loginError = '';
+              this.loadEmployees();
+            } else {
+              this.loginError = '用户名或密码错误';
+            }
+          },
+          
+          // 退出登录
+          logout() {
+            this.isLoggedIn = false;
+            localStorage.removeItem('isLoggedIn');
+            this.loginForm = {
+              username: '',
+              password: ''
+            };
+          },
+          
+          // 加载账号数据
+          loadAccounts() {
+            const accounts = localStorage.getItem('accounts');
+            if (accounts) {
+              this.accounts = JSON.parse(accounts);
+            } else {
+              // 默认管理员账号
+              this.accounts = [
+                { username: 'admin', password: 'admin123' }
+              ];
+              this.saveAccounts();
+            }
+          },
+          
+          // 保存账号数据
+          saveAccounts() {
+            localStorage.setItem('accounts', JSON.stringify(this.accounts));
+          },
+          
+          // 添加账号
+          addAccount() {
+            const { username, password } = this.newAccount;
+            if (!username || !password) {
+              this.errorMessage = '请填写用户名和密码';
+              setTimeout(() => this.errorMessage = '', 3000);
+              return;
+            }
+            
+            // 检查用户名是否已存在
+            if (this.accounts.some(acc => acc.username === username)) {
+              this.errorMessage = '用户名已存在';
+              setTimeout(() => this.errorMessage = '', 3000);
+              return;
+            }
+            
+            this.accounts.push({ username, password });
+            this.saveAccounts();
+            this.newAccount = { username: '', password: '' };
+            this.successMessage = '账号添加成功';
+            setTimeout(() => this.successMessage = '', 3000);
+          },
+          
+          // 删除账号
+          deleteAccount(index) {
+            if (this.accounts.length <= 1) {
+              this.errorMessage = '至少需要保留一个账号';
+              setTimeout(() => this.errorMessage = '', 3000);
+              return;
+            }
+            
+            if (confirm('确定要删除该账号吗？')) {
+              this.accounts.splice(index, 1);
+              this.saveAccounts();
+              this.successMessage = '账号删除成功';
+              setTimeout(() => this.successMessage = '', 3000);
+            }
+          },
+          
+          // 处理身份证号输入
+          handleIdCardInput() {
+            const idCard = this.formData.idCard;
+            if (idCard.length === 18) {
+              // 提取性别
+              const genderCode = parseInt(idCard.substring(16, 17));
+              this.formData.gender = genderCode % 2 === 1 ? '男' : '女';
+              
+              // 提取出生日期并计算年龄
+              const birthYear = parseInt(idCard.substring(6, 10));
+              const birthMonth = parseInt(idCard.substring(10, 12));
+              const birthDay = parseInt(idCard.substring(12, 14));
+              const today = new Date();
+              let age = today.getFullYear() - birthYear;
+              const monthDiff = today.getMonth() + 1 - birthMonth;
+              if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDay)) {
+                age--;
+              }
+              this.formData.age = age;
+              
+              // 提取籍贯（前6位）
+              const areaCode = idCard.substring(0, 6);
+              this.formData.hometown = this.getHometownByAreaCode(areaCode);
+              
+              // 判断安操证考试是否超龄
+              const isMale = this.formData.gender === '男';
+              const maxAge = isMale ? 60 : 55;
+              this.formData.isEligibleForExam = age <= maxAge ? '可以考试' : '不能考试';
+            }
+          },
+          
+          // 根据地区代码获取籍贯
+          getHometownByAreaCode(areaCode) {
+            // 这里使用简化的地区代码映射，实际应用中可能需要更完整的数据库
+            const areaMap = {
+              '110000': '北京市',
+              '120000': '天津市',
+              '310000': '上海市',
+              '500000': '重庆市',
+              '440000': '广东省',
+              '330000': '浙江省',
+              '320000': '江苏省',
+              '420000': '湖北省',
+              '430000': '湖南省',
+              '370000': '山东省',
+              '130000': '河北省',
+              '210000': '辽宁省',
+              '230000': '黑龙江省',
+              '610000': '陕西省',
+              '510000': '四川省',
+              '520000': '贵州省',
+              '530000': '云南省',
+              '620000': '甘肃省',
+              '630000': '青海省',
+              '140000': '山西省',
+              '150000': '内蒙古自治区',
+              '340000': '安徽省',
+              '350000': '福建省',
+              '360000': '江西省',
+              '410000': '河南省',
+              '450000': '广西壮族自治区',
+              '460000': '海南省',
+              '640000': '宁夏回族自治区',
+              '650000': '新疆维吾尔自治区',
+              '710000': '台湾省',
+              '810000': '香港特别行政区',
+              '820000': '澳门特别行政区'
+            };
+            return areaMap[areaCode] || '未知';
+          },
+          
+          // 计算工龄
+          calculateWorkYears() {
+            const trainingDate = this.formData.safetyTrainingDate;
+            if (trainingDate) {
+              const startDate = new Date(trainingDate);
+              const today = new Date();
+              const years = today.getFullYear() - startDate.getFullYear();
+              const months = today.getMonth() - startDate.getMonth();
+              let workYears = years;
+              if (months < 0) {
+                workYears--;
+              }
+              this.formData.workYears = Math.max(0, workYears);
+            }
+          },
+          
+          // 保存员工信息
+          saveEmployee() {
+            // 表单验证
+            if (!this.formData.name || !this.formData.phone || !this.formData.company || !this.formData.idCard) {
+              this.errorMessage = '请填写必填字段';
+              setTimeout(() => this.errorMessage = '', 3000);
+              return;
+            }
+            
+            // 检查是否是编辑模式
+            if (this.editingIndex !== undefined) {
+              this.employees[this.editingIndex] = { ...this.formData };
+              this.successMessage = '员工信息更新成功';
+              this.editingIndex = undefined;
+            } else {
+              this.employees.push({ ...this.formData });
+              this.successMessage = '员工信息保存成功';
+            }
+            
+            // 保存到本地存储
+            this.saveEmployees();
+            this.resetForm();
+            setTimeout(() => this.successMessage = '', 3000);
+          },
+          
+          // 重置表单
+          resetForm() {
+            this.formData = {
+              name: '',
+              phone: '',
+              company: '',
+              examId: '',
+              idCard: '',
+              gender: '',
+              hometown: '',
+              age: '',
+              job: '',
+              safetyCardValidDate: '',
+              safetyCardReviewDate: '',
+              isEligibleForExam: '',
+              safetyTrainingDate: '',
+              workYears: '',
+              departmentScore: '',
+              employmentStatus: '',
+              supervisor: '',
+              returnToWorkDate: '',
+              resignationDate: '',
+              remarks: ''
+            };
+            this.editingIndex = undefined;
+          },
+          
+          // 编辑员工
+          editEmployee(index) {
+            this.formData = { ...this.employees[index] };
+            this.editingIndex = index;
+          },
+          
+          // 删除员工
+          deleteEmployee(index) {
+            if (confirm('确定要删除该员工信息吗？')) {
+              this.employees.splice(index, 1);
+              this.saveEmployees();
+              this.successMessage = '员工信息删除成功';
+              setTimeout(() => this.successMessage = '', 3000);
+            }
+          },
+          
+          // 导入Excel
+          importExcel() {
+            this.$refs.fileInput.click();
+          },
+          
+          // 处理文件上传
+          handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              const data = new Uint8Array(e.target.result);
+              const workbook = XLSX.read(data, { type: 'array' });
+              const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+              const jsonData = XLSX.utils.sheet_to_json(worksheet);
+              
+              // 处理导入的数据
+              jsonData.forEach(item => {
+                // 转换日期格式
+                if (item.safetyTrainingDate) {
+                  item.safetyTrainingDate = this.formatDate(item.safetyTrainingDate);
+                }
+                if (item.safetyCardValidDate) {
+                  item.safetyCardValidDate = this.formatDate(item.safetyCardValidDate);
+                }
+                if (item.safetyCardReviewDate) {
+                  item.safetyCardReviewDate = this.formatDate(item.safetyCardReviewDate);
+                }
+                if (item.returnToWorkDate) {
+                  item.returnToWorkDate = this.formatDate(item.returnToWorkDate);
+                }
+                if (item.resignationDate) {
+                  item.resignationDate = this.formatDate(item.resignationDate);
+                }
+                
+                // 计算身份证相关信息
+                if (item.idCard) {
+                  this.formData.idCard = item.idCard;
+                  this.handleIdCardInput();
+                  item.gender = this.formData.gender;
+                  // 只有当籍贯为空时才自动生成
+                  if (!item.hometown) {
+                    item.hometown = this.formData.hometown;
+                  }
+                  item.age = this.formData.age;
+                  item.isEligibleForExam = this.formData.isEligibleForExam;
+                }
+                
+                // 计算工龄
+                if (item.safetyTrainingDate) {
+                  this.formData.safetyTrainingDate = item.safetyTrainingDate;
+                  this.calculateWorkYears();
+                  item.workYears = this.formData.workYears;
+                }
+                
+                this.employees.push(item);
+              });
+              
+              this.saveEmployees();
+              this.successMessage = `成功导入 ${jsonData.length} 条员工信息`;
+              setTimeout(() => this.successMessage = '', 3000);
+            };
+            reader.readAsArrayBuffer(file);
+            
+            // 重置文件输入
+            event.target.value = '';
+          },
+          
+          // 格式化日期
+          formatDate(date) {
+            if (typeof date === 'number') {
+              // Excel日期转换
+              const excelDate = date;
+              const baseDate = new Date(1900, 0, 1);
+              const days = Math.round(excelDate - 2); // Excel从1900年1月1日开始，且有闰年问题
+              const result = new Date(baseDate.getTime() + days * 24 * 60 * 60 * 1000);
+              return result.toISOString().split('T')[0];
+            }
+            return date;
+          },
+          
+          // 保存员工数据到本地存储
+          saveEmployees() {
+            localStorage.setItem('employees', JSON.stringify(this.employees));
+          },
+          
+          // 从本地存储加载员工数据
+          loadEmployees() {
+            const data = localStorage.getItem('employees');
+            if (data) {
+              this.employees = JSON.parse(data);
+            }
+          },
+          
+          // 导出Excel
+          exportExcel() {
+            if (this.employees.length === 0) {
+              this.errorMessage = '没有数据可导出';
+              setTimeout(() => this.errorMessage = '', 3000);
+              return;
+            }
+            
+            // 准备导出数据
+            const exportData = this.employees.map(employee => ({
+              姓名: employee.name,
+              电话号码: employee.phone,
+              公司: employee.company,
+              考卷编号: employee.examId,
+              身份证号: employee.idCard,
+              性别: employee.gender,
+              籍贯: employee.hometown,
+              年龄: employee.age,
+              工种: employee.job,
+              安操证有效日期: employee.safetyCardValidDate,
+              安操证年审日期: employee.safetyCardReviewDate,
+              安操证考试是否超龄: employee.isEligibleForExam,
+              安全教育时间: employee.safetyTrainingDate,
+              工龄: employee.workYears,
+              部门成绩: employee.departmentScore,
+              在岗情况: employee.employmentStatus,
+              主管班组长: employee.supervisor,
+              复工增员日期: employee.returnToWorkDate,
+              离职日期: employee.resignationDate,
+              备注: employee.remarks
+            }));
+            
+            // 创建工作簿和工作表
+            const worksheet = XLSX.utils.json_to_sheet(exportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, '员工信息');
+            
+            // 导出文件
+            XLSX.writeFile(workbook, `员工信息_${new Date().toISOString().split('T')[0]}.xlsx`);
+            
+            this.successMessage = '数据导出成功';
+            setTimeout(() => this.successMessage = '', 3000);
+          }
+        }
+      }).mount('#app');
+    </script>
+  </body>
+</html>
